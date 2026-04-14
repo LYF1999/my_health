@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.0.3
+
+### 改进
+- Windows 弹窗升级为 Windows 11 风格（WPF + XAML）：圆角 + 阴影 + Segoe UI + 蓝色 Accent 按钮，悬停/按下态
+- 设置午饭/下班时间的输入框改为 WPF 现代样式（圆角 TextBox、默认值自动全选聚焦、确定/取消双按钮）
+- 午饭/下班提醒通过 `DispatcherTimer` 自动关闭，不再依赖老旧 `MessageBox`
+
+### 内部
+- PowerShell 参数走环境变量传入，避免引号转义问题
+
 ## v0.0.2
 
 ### 新功能
