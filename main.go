@@ -384,22 +384,24 @@ func togglePause() {
 // ─── 弹窗 ───
 
 func showReminder(rtype string) {
-	title := ""
-	body := ""
-	btn := ""
+	// 眼睛休息：非阻塞提示，自动关闭，直接计数
+	if rtype == "eyeRest" {
+		go showTimedDialog("👀 该休息眼睛了", "看看 6 米外的远处，持续 20 秒，放松一下眼睛。", 6)
+		mu.Lock()
+		confirmAction(rtype)
+		mu.Unlock()
+		return
+	}
+
+	title := "健康提醒"
+	var body, btn string
 	switch rtype {
 	case "water":
-		title = "健康提醒"
 		body = "💧 该喝水了！起来倒杯水吧。"
 		btn = "喝水了"
 	case "stand":
-		title = "健康提醒"
 		body = "🧍 该站起来了！走走伸展一下。"
 		btn = "站立了"
-	case "eyeRest":
-		title = "健康提醒"
-		body = "👀 该休息眼睛了！看看远处 20 秒。"
-		btn = "休息了"
 	}
 
 	if runtime.GOOS == "darwin" {
@@ -677,7 +679,36 @@ func dropIcon() []byte {
 			}
 		}
 	}
-	return rgbaToPNG(w, h, rgba)
+	png := rgbaToPNG(w, h, rgba)
+	if runtime.GOOS == "windows" {
+		return pngToICO(png, w, h)
+	}
+	return png
+}
+
+// ICO 容器（直接内嵌 PNG）
+func pngToICO(png []byte, w, h int) []byte {
+	out := make([]byte, 0, 22+len(png))
+	// ICONDIR: reserved(2)=0, type(2)=1, count(2)=1
+	out = append(out, 0, 0, 1, 0, 1, 0)
+	// ICONDIRENTRY
+	bw := byte(0) // 0 means 256
+	if w < 256 { bw = byte(w) }
+	bh := byte(0)
+	if h < 256 { bh = byte(h) }
+	size := uint32(len(png))
+	offset := uint32(22)
+	out = append(out,
+		bw, bh,
+		0,    // color count
+		0,    // reserved
+		1, 0, // planes
+		32, 0, // bpp
+		byte(size), byte(size >> 8), byte(size >> 16), byte(size >> 24),
+		byte(offset), byte(offset >> 8), byte(offset >> 16), byte(offset >> 24),
+	)
+	out = append(out, png...)
+	return out
 }
 
 func rgbaToPNG(width, height int, rgba []byte) []byte {
