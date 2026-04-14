@@ -409,9 +409,7 @@ func showReminder(rtype string) {
 			fmt.Sprintf(`display dialog "%s" buttons {"%s"} default button 1 with title "%s"`, body, btn, title),
 		).Run()
 	} else {
-		exec.Command("powershell", "-Command",
-			fmt.Sprintf(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('%s','%s','OK','Information')`, body, title),
-		).Run()
+		winShowDialog(title, body, btn, 0)
 	}
 
 	mu.Lock()
@@ -426,11 +424,146 @@ func showTimedDialog(title, body string, seconds int) {
 			fmt.Sprintf(`display dialog "%s" buttons {"知道了"} default button 1 giving up after %d with title "%s"`, body, seconds, title),
 		).Run()
 	} else {
-		// Windows: 用 PowerShell 弹出自动关闭的消息框
-		exec.Command("powershell", "-Command",
-			fmt.Sprintf(`Add-Type -AssemblyName System.Windows.Forms; $f = New-Object Windows.Forms.Form -Property @{TopMost=$true}; [System.Windows.Forms.MessageBox]::Show($f, '%s', '%s', 'OK', 'Information')`, body, title),
-		).Run()
+		winShowDialog(title, body, "知道了", seconds)
 	}
+}
+
+// Windows 11 风格 WPF 弹窗（圆角 + 阴影 + Segoe UI + 蓝色 Accent 按钮）
+const winDialogXAML = `<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="440" SizeToContent="Height" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14">
+  <Border Background="#F3F3F3" CornerRadius="8" BorderBrush="#30000000" BorderThickness="1" Margin="16">
+    <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="2" Opacity="0.28" Color="#000000"/></Border.Effect>
+    <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <StackPanel Grid.Row="0" Margin="28,24,28,22">
+        <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" Foreground="#1C1C1C" TextWrapping="Wrap"/>
+        <TextBlock x:Name="BodyText" Margin="0,12,0,0" FontSize="14" Foreground="#383838" TextWrapping="Wrap" LineHeight="22"/>
+      </StackPanel>
+      <Border Grid.Row="1" Background="#ECECEC" CornerRadius="0,0,8,8" Padding="24,16">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="OkBtn" MinWidth="108" Height="34" Foreground="White" BorderThickness="0" Cursor="Hand" FontWeight="SemiBold">
+            <Button.Template>
+              <ControlTemplate TargetType="Button">
+                <Border x:Name="Bd" Background="#0067C0" CornerRadius="4">
+                  <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#1976D2"/></Trigger>
+                  <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="#005BA6"/></Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Button.Template>
+          </Button>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Border>
+</Window>`
+
+const winInputXAML = `<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="440" SizeToContent="Height" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="14">
+  <Border Background="#F3F3F3" CornerRadius="8" BorderBrush="#30000000" BorderThickness="1" Margin="16">
+    <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="2" Opacity="0.28" Color="#000000"/></Border.Effect>
+    <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <StackPanel Grid.Row="0" Margin="28,24,28,22">
+        <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" Foreground="#1C1C1C"/>
+        <TextBlock x:Name="PromptText" Margin="0,10,0,14" FontSize="14" Foreground="#383838" TextWrapping="Wrap"/>
+        <Border Background="White" CornerRadius="4" BorderBrush="#BDBDBD" BorderThickness="1">
+          <TextBox x:Name="Input" BorderThickness="0" Background="Transparent" Padding="10,8" FontSize="15" VerticalContentAlignment="Center"/>
+        </Border>
+      </StackPanel>
+      <Border Grid.Row="1" Background="#ECECEC" CornerRadius="0,0,8,8" Padding="24,16">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="CancelBtn" Content="取消" MinWidth="96" Height="34" Margin="0,0,10,0" Foreground="#1C1C1C" BorderThickness="1" Cursor="Hand">
+            <Button.Template>
+              <ControlTemplate TargetType="Button">
+                <Border x:Name="Bd" Background="#FDFDFD" BorderBrush="#D0D0D0" BorderThickness="1" CornerRadius="4">
+                  <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#F5F5F5"/></Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Button.Template>
+          </Button>
+          <Button x:Name="OkBtn" Content="确定" MinWidth="96" Height="34" Foreground="White" BorderThickness="0" Cursor="Hand" FontWeight="SemiBold" IsDefault="True">
+            <Button.Template>
+              <ControlTemplate TargetType="Button">
+                <Border x:Name="Bd" Background="#0067C0" CornerRadius="4">
+                  <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#1976D2"/></Trigger>
+                  <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="#005BA6"/></Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Button.Template>
+          </Button>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Border>
+</Window>`
+
+func winShowDialog(title, body, btn string, timeoutSec int) {
+	script := `Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+[xml]$x = $env:MH_XAML
+$r = New-Object System.Xml.XmlNodeReader $x
+$w = [Windows.Markup.XamlReader]::Load($r)
+$w.Title = $env:MH_TITLE
+$w.FindName('TitleText').Text = $env:MH_TITLE
+$w.FindName('BodyText').Text = $env:MH_BODY
+$ok = $w.FindName('OkBtn'); $ok.Content = $env:MH_BTN
+$ok.Add_Click({ $w.Close() })
+$w.Add_MouseLeftButtonDown({ try { $w.DragMove() } catch {} })
+$w.Add_KeyDown({ if ($_.Key -eq 'Escape' -or $_.Key -eq 'Enter') { $w.Close() } })
+$t = [int]$env:MH_TIMEOUT
+if ($t -gt 0) {
+  $tm = New-Object System.Windows.Threading.DispatcherTimer
+  $tm.Interval = [TimeSpan]::FromSeconds($t)
+  $tm.Add_Tick({ $tm.Stop(); $w.Close() })
+  $tm.Start()
+}
+$w.ShowDialog() | Out-Null`
+	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", script)
+	cmd.Env = append(os.Environ(),
+		"MH_XAML="+winDialogXAML,
+		"MH_TITLE="+title,
+		"MH_BODY="+body,
+		"MH_BTN="+btn,
+		fmt.Sprintf("MH_TIMEOUT=%d", timeoutSec),
+	)
+	cmd.Run()
+}
+
+func winShowInput(title, prompt, defaultVal string) string {
+	script := `Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+[xml]$x = $env:MH_XAML
+$r = New-Object System.Xml.XmlNodeReader $x
+$w = [Windows.Markup.XamlReader]::Load($r)
+$w.Title = $env:MH_TITLE
+$w.FindName('TitleText').Text = $env:MH_TITLE
+$w.FindName('PromptText').Text = $env:MH_PROMPT
+$in = $w.FindName('Input'); $in.Text = $env:MH_DEFAULT
+$in.Loaded.Add({ $in.SelectAll(); $in.Focus() })
+$script:result = ''
+$w.FindName('OkBtn').Add_Click({ $script:result = $in.Text; $w.Close() })
+$w.FindName('CancelBtn').Add_Click({ $w.Close() })
+$w.Add_MouseLeftButtonDown({ try { $w.DragMove() } catch {} })
+$w.Add_KeyDown({ if ($_.Key -eq 'Escape') { $w.Close() } })
+$w.ShowDialog() | Out-Null
+[Console]::Out.Write($script:result)`
+	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", script)
+	cmd.Env = append(os.Environ(),
+		"MH_XAML="+winInputXAML,
+		"MH_TITLE="+title,
+		"MH_PROMPT="+prompt,
+		"MH_DEFAULT="+defaultVal,
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
 }
 
 // 弹窗让用户输入时间
@@ -458,13 +591,7 @@ if button returned of r is "确定" then return text returned of r`, prompt, cur
 		}
 		result = string(out)
 	} else {
-		out, err := exec.Command("powershell", "-Command",
-			fmt.Sprintf(`Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::InputBox('%s', '设置时间', '%s')`, prompt, currentVal),
-		).Output()
-		if err != nil {
-			return
-		}
-		result = string(out)
+		result = winShowInput("设置时间", prompt, currentVal)
 	}
 
 	// 去掉换行
