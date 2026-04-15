@@ -5,64 +5,51 @@ on:
     tags: ["v*"]
 
 jobs:
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.23"
-
-      - name: Build
-        run: |
-          go build -o MyHealth .
-          mkdir -p MyHealth.app/Contents/MacOS
-          cp MyHealth MyHealth.app/Contents/MacOS/
-          cat > MyHealth.app/Contents/Info.plist <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>CFBundleIdentifier</key><string>com.yifei.myhealth</string>
-            <key>CFBundleName</key><string>MyHealth</string>
-            <key>CFBundleExecutable</key><string>MyHealth</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>LSUIElement</key><true/>
-          </dict></plist>
-          EOF
-          zip -r MyHealth-macOS.zip MyHealth.app
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MyHealth-macOS
-          path: MyHealth-macOS.zip
-
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.23"
-
-      - name: Build
-        run: go build -ldflags "-H windowsgui" -o MyHealth.exe .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: MyHealth-Windows
-          path: MyHealth.exe
-
   release:
-    needs: [build-macos, build-windows]
-    runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - uses: actions/download-artifact@v4
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+          - platform: windows-latest
+            args: ""
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
         with:
-          files: |
-            MyHealth-macOS/MyHealth-macOS.zip
-            MyHealth-Windows/MyHealth.exe
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
+          releaseBody: 详见 CHANGELOG.md
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

@@ -1,0 +1,23 @@
+[package]
+name = "my-health-tauri"
+version = "0.1.0"
+description = "健康提醒小助手"
+authors = ["Yifei"]
+edition = "2021"
+
+[lib]
+name = "my_health_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
+parking_lot = "0.12"
+urlencoding = "2"

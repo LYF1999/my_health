@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.0
+
+### 重大变更
+- **整体重写为 Tauri v2 + Rust**。前一版 Go + `fyne.io/systray` 已归档（git 历史可查）
+- Windows 弹窗不再依赖 PowerShell —— WebView 直接渲染 HTML，杀软不再误报
+
+### 新功能
+- 弹窗使用 HTML/CSS 渲染：圆角卡片 + 阴影 + 透明背景 + Win11/macOS 风格 Accent 按钮，自适应深色/浅色模式
+- 设置午饭/下班时间改回自由输入弹窗，HH:MM 实时校验
+- 提醒倒计时实时刷新（菜单标题秒级更新）
+
+### 内部
+- Rust 模块拆分（`state` / `menu` / `reminder` / `storage` / `holidays` / `icon`），全局状态用 `parking_lot::Mutex` 保护
+- 托盘图标改为 44×44 抗锯齿手绘水滴（`icon.rs`），保留蓝色（关闭 macOS template 模式）
+- CI 重写为 `tauri-action`，自动构建 macOS aarch64/x86_64 + Windows，发布 `.dmg` / `.app` / `.exe` / `.msi`
+
 ## v0.0.3
 
 ### 改进

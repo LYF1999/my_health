@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title></title>
+<style>
+  :root {
+    --bg: rgba(243, 243, 243, 0.92);
+    --panel-bg: #F3F3F3;
+    --border: rgba(0, 0, 0, 0.18);
+    --footer-bg: #ECECEC;
+    --title: #1C1C1C;
+    --body: #383838;
+    --accent: #0067C0;
+    --accent-hover: #1976D2;
+    --accent-press: #005BA6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --panel-bg: #2B2B2B;
+      --border: rgba(255, 255, 255, 0.12);
+      --footer-bg: #242424;
+      --title: #F5F5F5;
+      --body: #D4D4D4;
+    }
+  }
+  html, body {
+    margin: 0; padding: 0;
+    background: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: "Segoe UI Variable Text", "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    color: var(--body);
+    overflow: hidden;
+  }
+  .card {
+    margin: 12px;
+    border-radius: 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .body-area {
+    padding: 24px 28px 20px;
+    -webkit-app-region: drag;
+    app-region: drag;
+    flex: 1;
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--title);
+    letter-spacing: 0.2px;
+  }
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--body);
+  }
+  .footer {
+    padding: 14px 24px;
+    background: var(--footer-bg);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  button {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+    min-width: 108px;
+    height: 34px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 5px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:active { background: var(--accent-press); }
+  button:focus { outline: 2px solid rgba(0, 103, 192, 0.4); outline-offset: 2px; }
+  .countdown {
+    font-size: 12px;
+    color: var(--body);
+    opacity: 0.6;
+    margin-left: 14px;
+    align-self: center;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="body-area">
+    <h1 id="title"></h1>
+    <p id="body"></p>
+  </div>
+  <div class="footer">
+    <span id="countdown" class="countdown"></span>
+    <button id="okBtn" autofocus></button>
+  </div>
+</div>
+<script>
+  const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const title = params.get('title') || '';
+  const body = params.get('body') || '';
+  const btn = params.get('btn') || '确定';
+  const timeout = parseInt(params.get('timeout') || '0', 10);
+
+  document.getElementById('title').textContent = title;
+  document.getElementById('body').textContent = body;
+  document.getElementById('okBtn').textContent = btn;
+  document.title = title;
+
+  const closeWin = async () => {
+    try {
+      const w = window.__TAURI__?.window?.getCurrentWindow?.() || window.__TAURI__?.window?.getCurrent?.();
+      if (w) await w.close(); else window.close();
+    } catch (_) { window.close(); }
+  };
+
+  document.getElementById('okBtn').addEventListener('click', closeWin);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Enter') closeWin();
+  });
+
+  if (timeout > 0) {
+    let left = timeout;
+    const cd = document.getElementById('countdown');
+    cd.textContent = left + 's';
+    const iv = setInterval(() => {
+      left -= 1;
+      if (left <= 0) { clearInterval(iv); closeWin(); return; }
+      cd.textContent = left + 's';
+    }, 1000);
+  }
+</script>
+</body>
+</html>

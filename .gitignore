@@ -1,1 +1,28 @@
-dist
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist-ssr
+*.local
+# 注意：dist/ 不忽略 —— 我们手写的静态弹窗 HTML 直接放在那里，被 Tauri 当 frontendDist 加载
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
