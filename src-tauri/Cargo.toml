@@ -1,6 +1,6 @@
 [package]
 name = "my-health-tauri"
-version = "0.1.0"
+version = "0.1.1"
 description = "健康提醒小助手"
 authors = ["Yifei"]
 edition = "2021"

@@ -28,15 +28,16 @@ fn build(
     timeout_secs: Option<u32>,
     height: f64,
 ) -> tauri::Result<tauri::WebviewWindow> {
+    let label = unique_label();
     let timeout_str = timeout_secs.map(|t| t.to_string()).unwrap_or_default();
     let url = format!(
-        "dialog.html#title={}&body={}&btn={}&timeout={}",
+        "dialog.html#title={}&body={}&btn={}&timeout={}&label={}",
         encode(title),
         encode(body),
         encode(btn),
         encode(&timeout_str),
+        encode(&label),
     );
-    let label = unique_label();
     WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url.into()))
         .title(title)
         .inner_size(460.0, height)
@@ -46,7 +47,7 @@ fn build(
         .skip_taskbar(true)
         .resizable(false)
         .center()
-        .shadow(true)
+        .shadow(false)
         .focused(true)
         .build()
 }
@@ -128,7 +129,7 @@ pub fn show_input(
         .skip_taskbar(true)
         .resizable(false)
         .center()
-        .shadow(true)
+        .shadow(false)
         .focused(true)
         .visible(true)
         .build()

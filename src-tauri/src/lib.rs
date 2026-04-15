@@ -75,8 +75,17 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // 阻止"最后一个窗口关闭就退出"的默认行为
+            // 只有"退出"菜单调用的 app.exit(0) 才会真正退出
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+                if code.is_none() {
+                    api.prevent_exit();
+                }
+            }
+        });
 }
 
 fn handle_menu_event(
